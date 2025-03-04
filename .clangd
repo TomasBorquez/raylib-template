@@ -1,0 +1,5 @@
+CompileFlags:
+  Add: 
+    - -IC:/raylib/include
+    - -std=c99
+  CompilationDatabase: .
