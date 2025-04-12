@@ -8,7 +8,7 @@ i32 main() {
 
     AddFile(S("./src/main.c"));
 
-    AddIncludePaths(S("C:/raylib/include"), S("./src"));
+    AddIncludePaths(S("C:/raylib/include"));
     AddLibraryPaths(S("C:/raylib/lib"));
     LinkSystemLibraries(S("raylib"), S("opengl32"), S("gdi32"), S("winmm"));
 
