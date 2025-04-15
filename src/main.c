@@ -9,7 +9,7 @@ void Draw() {
 }
 
 void Update() {
-  // something
+  // your updates heeh
 }
 
 int main(void) {

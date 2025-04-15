@@ -1,20 +1,35 @@
 /* MIT License
 
   mate.h - A single-header library for compiling your C code in C
-  Version - 2025-04-11 (0.1.0):
+  Version - 2025-04-15 (0.1.4):
   https://github.com/TomasBorquez/mate.h
 
   Guide on the `README.md`
 */
 
 #pragma once
-#include <assert.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-/* Platform MACROS */
+// NOTE: Only define BASE_IMPLEMENTATION if MATE_IMPLEMENTATION
+#ifdef MATE_IMPLEMENTATION
+#define BASE_IMPLEMENTATION
+#endif
+
+// --- BASE.H START ---
+
+/* MIT License
+
+  base.h - Better cross-platform std
+  Version - 2025-04-15 (0.1.4):
+  https://github.com/TomasBorquez/base.h
+
+  Usage:
+    #define BASE_IMPLEMENTATION
+    #include "base.h"
+
+  More on the the `README.md`
+*/
+
+/* --- Platform MACROS and includes --- */
 #if defined(__clang__)
 #define COMPILER_CLANG
 #elif defined(_MSC_VER)
@@ -22,7 +37,7 @@
 #elif defined(__GNUC__)
 #define COMPILER_GCC
 #else
-#error "The codebase only supports Clang, MSVC and GCC"
+#error "The codebase only supports Clang, MSVC and GCC, TCC soon"
 #endif
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)
@@ -30,10 +45,10 @@
 #elif defined(__linux__) || defined(__gnu_linux__)
 #define PLATFORM_LINUX
 #else
-#error "The codebase only supports windows and linux"
+#error "The codebase only supports windows and linux, macos soon"
 #endif
 
-#if defined(COMPILER_CLANG)
+#ifdef COMPILER_CLANG
 #define FILE_NAME __FILE_NAME__
 #else
 #define FILE_NAME __FILE__
@@ -41,18 +56,109 @@
 
 #ifdef PLATFORM_WIN
 #define WIN32_LEAN_AND_MEAN
-#include <errno.h>
-#include <limits.h>
-#include <string.h>
 #include <windows.h>
 #elif def PLATFORM_LINUX
-#include <errno.h>
-#include <limits.h>
-#include <string.h>
 #include <unistd.h>
 #endif
 
-/* Types and MACRO types */
+#if defined(__STDC_VERSION__)
+#if (__STDC_VERSION__ >= 202311L)
+#define C_STANDARD_C23
+#define C_STANDARD "C23"
+#elif (__STDC_VERSION__ >= 201710L)
+#define C_STANDARD_C17
+#define C_STANDARD "C17"
+#elif (__STDC_VERSION__ >= 201112L)
+#define C_STANDARD_C11
+#define C_STANDARD "C11"
+#elif (__STDC_VERSION__ >= 199901L)
+#define C_STANDARD_C99
+#define C_STANDARD "C99"
+#else
+#error "you are cooked" // ???
+#endif
+#endif
+
+#if defined(COMPILER_MSVC)
+#if _MSVC_LANG >= 202000L
+#define C_STANDARD_C23
+#define C_STANDARD "C23"
+#elif _MSVC_LANG >= 201704L
+#define C_STANDARD_C17
+#define C_STANDARD "C17"
+#elif _MSVC_LANG >= 201103L
+#define C_STANDARD_C11
+#define C_STANDARD "C11"
+#else
+#error "you are cooked" // ???
+#endif
+#endif
+
+#include <assert.h>
+#include <ctype.h>
+#include <errno.h>
+#include <stdarg.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+/* --- Platform Specific --- */
+#ifdef PLATFORM_WIN
+/* Process functions */
+#define popen _popen
+#define pclose _pclose
+
+/* File I/O functions */
+#define fileno _fileno
+#define fdopen _fdopen
+#define access _access
+#define unlink _unlink
+#define isatty _isatty
+#define dup _dup
+#define dup2 _dup2
+#define ftruncate _chsize
+#define fsync _commit
+
+/* Directory functions */
+#define mkdir(path, mode) _mkdir(path)
+#define rmdir _rmdir
+#define getcwd _getcwd
+#define chdir _chdir
+
+/* Process/Threading */
+#define getpid _getpid
+#define execvp _execvp
+#define execve _execve
+#define sleep(x) Sleep((x) * 1000)
+#define usleep(x) Sleep((x) / 1000)
+
+/* String functions */
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
+#define strdup _strdup
+
+/* File modes */
+#define R_OK 4
+#define W_OK 2
+#define X_OK 0 /* Windows doesn't have explicit X_OK */
+#define F_OK 0
+
+/* File descriptors */
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
+#define STDERR_FILENO 2
+
+/* Some functions need complete replacements */
+#ifdef COMPILER_MSVC
+#define snprintf _snprintf
+#define vsnprintf _vsnprintf
+#endif
+
+#endif
+
+/* --- Types and MACRO types --- */
 // Unsigned int types
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -111,7 +217,8 @@ typedef struct {
 
 #define TYPE_INIT(type) (type)
 
-/* Vector */
+/* --- Vector Macros --- */
+// TODO: Add MSVC like vector macros
 #define VEC_TYPE(typeName, valueType)                                                                                                                                                                                                          \
   typedef struct {                                                                                                                                                                                                                             \
     valueType *data;                                                                                                                                                                                                                           \
@@ -191,23 +298,21 @@ typedef struct {
     vector.data = NULL;                                                                                                                                                                                                                        \
   })
 
-/* Misc */
+/* --- Time and Platforms --- */
 i64 TimeNow();
 void WaitTime(i64 ms);
 String GetCompiler();
 String GetPlatform();
 
-/* Errors */
-#ifdef PLATFORM_LINUX
+/* --- Errors --- */
 typedef i32 errno_t;
-#endif
 
 enum GeneralError {
   SUCCESS,
   MEMORY_ALLOCATION_FAILED,
 };
 
-/* Arena */
+/* --- Arena --- */
 typedef struct {
   int8_t *buffer;
   size_t bufferLength;
@@ -223,16 +328,16 @@ void *ArenaAlloc(Arena *arena, size_t size);
 void ArenaFree(Arena *arena);
 void ArenaReset(Arena *arena);
 
-/* String */
-// * Inspired from clay.h
-#define STRING_LENGTH(s) ((sizeof(s) / sizeof((s)[0])) - sizeof((s)[0]))
+/* --- String and Macros --- */
+#define STRING_LENGTH(s) ((sizeof(s) / sizeof((s)[0])) - sizeof((s)[0])) // NOTE: Inspired from clay.h
 #define ENSURE_STRING_LITERAL(x) ("" x "")
-// Note: If an error led you here, it's because `S` can only be used with string literals, i.e. S("SomeString") and not S(yourString)
-#define S(string) (TYPE_INIT(String){.length = STRING_LENGTH(ENSURE_STRING_LITERAL(string)), .data = (string)})
 
-// * This is to have printf like warnings on format
+// NOTE: If an error led you here, it's because `S` can only be used with string literals, i.e. `S("SomeString")` and not `S(yourString)` - for that use `s()`
+#define S(string) (TYPE_INIT(String){.length = STRING_LENGTH(ENSURE_STRING_LITERAL(string)), .data = (string)})
+String s(char *msg);
+
 #ifdef COMPILER_CLANG
-#define FORMAT_CHECK(fmt_pos, args_pos) __attribute__((format(printf, fmt_pos, args_pos)))
+#define FORMAT_CHECK(fmt_pos, args_pos) __attribute__((format(printf, fmt_pos, args_pos))) // NOTE: Printf like warnings on format
 #else
 #define FORMAT_CHECK(fmt_pos, args_pos)
 #endif
@@ -242,10 +347,10 @@ String F(Arena *arena, const char *format, ...) FORMAT_CHECK(2, 3);
 VEC_TYPE(StringVector, String);
 #define StringVectorPushMany(vector, ...)                                                                                                                                                                                                      \
   ({                                                                                                                                                                                                                                           \
-    String values[] = {__VA_ARGS__};                                                                                                                                                                                                           \
+    char *values[] = {__VA_ARGS__};                                                                                                                                                                                                            \
     size_t count = sizeof(values) / sizeof(values[0]);                                                                                                                                                                                         \
     for (size_t i = 0; i < count; i++) {                                                                                                                                                                                                       \
-      VecPush(vector, values[i]);                                                                                                                                                                                                              \
+      VecPush(vector, s(values[i]));                                                                                                                                                                                                           \
     }                                                                                                                                                                                                                                          \
   })
 
@@ -264,15 +369,14 @@ String StrSlice(Arena *arena, String *str, i32 start, i32 end);
 String ConvertExe(Arena *arena, String path);
 String ConvertPath(Arena *arena, String path);
 
-/* Random */
-void RandomInit();
+/* --- Random --- */
+void RandomInit(); // NOTE: Must init before using
 u64 RandomGetSeed();
 void RandomSetSeed(u64 newSeed);
-// ! Must init before using any of them
 i32 RandomInteger(i32 min, i32 max);
 f32 RandomFloat(f32 min, f32 max);
 
-/* File */
+/* --- File --- */
 #define MAX_FILES 200
 
 typedef struct {
@@ -296,6 +400,10 @@ typedef struct {
 
   size_t totalCount;
 } FileData;
+
+#ifndef MAX_PATH
+#define MAX_PATH 260
+#endif
 extern char currentPath[MAX_PATH];
 
 char *GetCwd();
@@ -303,9 +411,7 @@ void SetCwd(char *destination);
 FileData *GetDirFiles();
 FileData *NewFileData();
 
-enum FileStatsError {
-  FILE_GET_ATTRIBUTES_FAILED = 1,
-};
+enum FileStatsError { FILE_GET_ATTRIBUTES_FAILED = 1 };
 errno_t FileStats(String *path, File *file);
 
 enum FileReadError { FILE_NOT_EXIST = 1, FILE_OPEN_FAILED, FILE_GET_SIZE_FAILED, FILE_READ_FAILED };
@@ -313,15 +419,18 @@ errno_t FileRead(Arena *arena, String *path, String *result);
 
 // TODO: enum FileWriteError {};
 errno_t FileWrite(String *path, String *data);
+
 // TODO: enum FileDeleteError {};
 errno_t FileDelete(String *path);
+
 // TODO: enum FileRenameError {};
 errno_t FileRename(String *oldPath, String *newPath);
-bool Mkdir(String path); // *Makes a dir if it does not exist only
 
-/* Logger */
+bool Mkdir(String path); // NOTE: Mkdir if not exist
+
+/* --- Logger --- */
 #define RESET "\x1b[0m"
-#define GRAY "\x1b[38;2;192;192;192m" // Light gray
+#define GRAY "\x1b[38;2;192;192;192m"
 #define RED "\x1b[0;31m"
 #define GREEN "\x1b[0;32m"
 #define ORANGE "\x1b[0;33m"
@@ -332,90 +441,119 @@ void LogError(const char *format, ...) FORMAT_CHECK(1, 2);
 void LogSuccess(const char *format, ...) FORMAT_CHECK(1, 2);
 void LogInit();
 
-/* Mate */
-typedef struct {
-  i64 lastBuild;
-  bool firstBuild;
-} MateCache;
+/* --- Defer Macros --- */
+#ifdef DEFER_MACRO // NOTE: Optional since not all compilers support it and not all C versions do either
 
-typedef struct {
-  String compiler;
+/* - GCC implementation -
+  NOTE: Must use C23 (depending on the platform)
+*/
+#ifdef COMPILER_GCC
+#define defer __DEFER(__COUNTER__)
+#define __DEFER(N) __DEFER_(N)
+#define __DEFER_(N) __DEFER__(__DEFER_FUNCTION_##N, __DEFER_VARIABLE_##N)
+#define __DEFER__(F, V)                                                                                                                                                                                                                        \
+  auto void F(int *);                                                                                                                                                                                                                          \
+  [[gnu::cleanup(F)]] int V;                                                                                                                                                                                                                   \
+  auto void F(int *)
 
-  // Paths
-  String buildDirectory;
-  String mateSource;
-  String mateExe;
-  String mateCachePath;
+/* - Clang implementation -
+  NOTE: Must compile with flag `-fblocks`
+*/
+#elif defined(COMPILER_CLANG)
+typedef void (^const __df_t)(void);
 
-  // Cache
-  MateCache mateCache;
+[[maybe_unused]]
+static inline void __df_cb(__df_t *__fp) {
+  (*__fp)();
+}
 
-  // Misc
-  Arena arena;
-  bool customConfig;
-  i64 startTime;
-  i64 totalTime;
-} MateConfig;
+#define defer __DEFER(__COUNTER__)
+#define __DEFER(N) __DEFER_(N)
+#define __DEFER_(N) __DEFER__(__DEFER_VARIABLE_##N)
+#define __DEFER__(V) [[gnu::cleanup(__df_cb)]] __df_t V = ^void(void)
 
-typedef struct {
-  String output;
-  String flags;
-  String linkerFlags;
-  StringVector sources;
-  // TODO: add target
-  // TODO: optimize
-  // TODO: warnings
-  // TODO: debugSymbols
-  String includes;
-  String libs;
-} Executable;
+/* -- MSVC implementation --
+  NOTE: Not available yet in MSVC, use `_try/_finally`
+*/
+#elif defined(COMPILER_MSVC)
+#error "Not available yet in MSVC, use `_try/_finally`"
+#endif
 
-void CreateConfig(MateConfig config);
-void StartBuild();
-void reBuild();
-void CreateExecutable(Executable options);
+#endif
 
-#define AddLibraryPaths(...)                                                                                                                                                                                                                   \
-  ({                                                                                                                                                                                                                                           \
-    StringVector vector = {0};                                                                                                                                                                                                                 \
-    StringVectorPushMany(vector, __VA_ARGS__);                                                                                                                                                                                                 \
-    addLibraryPaths(&vector);                                                                                                                                                                                                                  \
-  })
-static void addLibraryPaths(StringVector *vector);
+/*
+  Implementation of base.h
+  Version - 2025-04-12 (0.1.1):
+  https://github.com/TomasBorquez/base.h
+*/
+#ifdef BASE_IMPLEMENTATION
 
-#define AddIncludePaths(...)                                                                                                                                                                                                                   \
-  ({                                                                                                                                                                                                                                           \
-    StringVector vector = {0};                                                                                                                                                                                                                 \
-    StringVectorPushMany(vector, __VA_ARGS__);                                                                                                                                                                                                 \
-    addIncludePaths(&vector);                                                                                                                                                                                                                  \
-  })
-static void addIncludePaths(StringVector *vector);
+// --- Platform specific functions ---
+#if !defined(PLATFORM_WIN) && !defined(C_STANDARD_C11)
+#ifndef EINVAL
+#define EINVAL 22 // NOTE: Invalid argument
+#endif
+#ifndef ERANGE
+#define ERANGE 34 // NOTE: Result too large
+#endif
 
-#define LinkSystemLibraries(...)                                                                                                                                                                                                               \
-  ({                                                                                                                                                                                                                                           \
-    StringVector vector = {0};                                                                                                                                                                                                                 \
-    StringVectorPushMany(vector, __VA_ARGS__);                                                                                                                                                                                                 \
-    linkSystemLibraries(&vector);                                                                                                                                                                                                              \
-  })
-static void linkSystemLibraries(StringVector *vector);
+errno_t memcpy_s(void *dest, size_t destSize, const void *src, size_t count) {
+  if (dest == NULL) {
+    return EINVAL;
+  }
 
-void AddFile(String source);
-String InstallExecutable();
-i32 RunCommand(String command);
-void EndBuild();
+  if (src == NULL || destSize < count) {
+    memset(dest, 0, destSize);
+    return EINVAL;
+  }
 
-static bool needRebuild();
-static void setDefaultState();
+  memcpy(dest, src, count);
+  return 0;
+}
 
-#ifdef MATE_IMPLEMENTATION
-/* Misc Implementation */
+inline errno_t fopen_s(FILE **streamptr, const char *filename, const char *mode) {
+  if (streamptr == NULL) {
+    return EINVAL;
+  }
+
+  *streamptr = NULL;
+  if (filename == NULL || mode == NULL) {
+    return EINVAL;
+  }
+
+  if (*filename == '\0') {
+    return EINVAL;
+  }
+
+  const char *valid_modes = "rwa+btx";
+  size_t mode_len = strlen(mode);
+
+  if (mode_len == 0) {
+    return EINVAL;
+  }
+
+  for (size_t i = 0; i < mode_len; i++) {
+    if (strchr(valid_modes, mode[i]) == NULL) {
+      return EINVAL;
+    }
+  }
+
+  *streamptr = fopen(filename, mode);
+  if (*streamptr == NULL) {
+    return errno;
+  }
+
+  return 0;
+}
+#endif
+
 String GetCompiler() {
 #if defined(COMPILER_CLANG)
   return S("clang");
 #elif defined(COMPILER_GCC)
   return S("gcc");
 #elif defined(COMPILER_MSVC)
-  return S("msvc");
+  return S("MSVC");
 #endif
 }
 
@@ -515,7 +653,9 @@ Arena ArenaInit(size_t size) {
 static size_t maxStringSize = 10000;
 
 static size_t strLength(char *str, size_t maxSize) {
-  assert(str != NULL && "string should never be NULL");
+  if (str == NULL) {
+    return 0;
+  }
 
   size_t len = 0;
   while (len < maxSize && str[len] != '\0') {
@@ -538,7 +678,7 @@ void SetMaxStrSize(size_t size) {
 }
 
 String StrNewSize(Arena *arena, char *str, size_t len) {
-  const size_t memorySize = sizeof(char) * len + 1; // * Includes null terminator
+  const size_t memorySize = sizeof(char) * len + 1; // NOTE: Includes null terminator
   char *allocatedString = ArenaAlloc(arena, memorySize);
 
   memcpy(allocatedString, str, memorySize);
@@ -548,7 +688,10 @@ String StrNewSize(Arena *arena, char *str, size_t len) {
 
 String StrNew(Arena *arena, char *str) {
   const size_t len = strLength(str, maxStringSize);
-  const size_t memorySize = sizeof(char) * len + 1; // * Includes null terminator
+  if (len == 0) {
+    return (String){0, NULL};
+  }
+  const size_t memorySize = sizeof(char) * len + 1; // NOTE: Includes null terminator
   char *allocatedString = ArenaAlloc(arena, memorySize);
 
   memcpy(allocatedString, str, memorySize);
@@ -556,12 +699,19 @@ String StrNew(Arena *arena, char *str) {
   return (String){len, allocatedString};
 }
 
+String s(char *msg) {
+  return (String){
+      .length = strlen(msg),
+      .data = msg,
+  };
+}
+
 String StrConcat(Arena *arena, String *string1, String *string2) {
   assert(!StrIsNull(string1) && "string1 should never be NULL");
   assert(!StrIsNull(string2) && "string2 should never be NULL");
 
   const size_t len = string1->length + string2->length;
-  const size_t memorySize = sizeof(char) * len + 1; // * Includes null terminator
+  const size_t memorySize = sizeof(char) * len + 1; // NOTE: Includes null terminator
   char *allocatedString = ArenaAlloc(arena, memorySize);
 
   memcpy_s(allocatedString, memorySize, string1->data, string1->length);
@@ -746,7 +896,6 @@ String ConvertPath(Arena *arena, String path) {
 }
 
 String ParsePath(Arena *arena, String path) {
-  String platform = GetPlatform();
   String result;
 
   if (path.length >= 2 && path.data[0] == '.' && (path.data[1] == '/' || path.data[1] == '\\')) {
@@ -876,14 +1025,14 @@ FileData *GetDirFiles() {
     Folder *currFolder = &fileData->folders[fileData->folderCount];
 
     if (isDirectory) {
-      currFolder->name = _strdup(findData.cFileName);
+      currFolder->name = strdup(findData.cFileName);
       fileData->folderCount++;
     }
 
     if (!isDirectory) {
       char *dot = strrchr(findData.cFileName, '.');
       if (dot != NULL) {
-        currFile->extension = _strdup(dot + 1);
+        currFile->extension = strdup(dot + 1);
 
         size_t baseNameLength = dot - findData.cFileName;
         char *baseName = (char *)malloc(baseNameLength + 1);
@@ -893,8 +1042,8 @@ FileData *GetDirFiles() {
       }
 
       if (dot == NULL) {
-        currFile->extension = _strdup("");
-        currFile->name = _strdup(findData.cFileName);
+        currFile->extension = strdup("");
+        currFile->name = strdup(findData.cFileName);
       }
 
       LARGE_INTEGER createTime, modifyTime;
@@ -983,13 +1132,13 @@ errno_t FileStats(String *path, File *result) {
     nameStart = pathStr;
   }
 
-  result->name = _strdup(nameStart);
+  result->name = strdup(nameStart);
 
   char *extStart = strrchr(nameStart, '.');
   if (extStart) {
-    result->extension = _strdup(extStart + 1);
+    result->extension = strdup(extStart + 1);
   } else {
-    result->extension = _strdup("");
+    result->extension = strdup("");
   }
 
   LARGE_INTEGER fileSize;
@@ -1239,8 +1388,110 @@ void LogInit() {
   SetConsoleMode(hOut, dwMode);
 #endif
 }
+#endif
+// --- BASE.H END ---
 
-/* Mate Implementation */
+// --- MATE.H START ---
+/* MIT License
+   mate.h - Mate Definitions start here
+   Guide on the `README.md`
+*/
+typedef struct {
+  i64 lastBuild;
+  bool firstBuild;
+} MateCache;
+
+typedef struct {
+  char *compiler;
+  char *buildDirectory;
+  char *mateSource;
+  char *mateExe;
+  char *mateCachePath;
+} MateOptions;
+
+typedef struct {
+  String compiler;
+
+  // Paths
+  String buildDirectory;
+  String mateSource;
+  String mateExe;
+  String mateCachePath;
+
+  // Cache
+  MateCache mateCache;
+
+  // Misc
+  Arena arena;
+  bool customConfig;
+  i64 startTime;
+  i64 totalTime;
+} MateConfig;
+
+typedef struct {
+  String output;
+  String flags;
+  String linkerFlags;
+  // TODO: add target
+  // TODO: optimize
+  // TODO: warnings
+  // TODO: debugSymbols
+  String includes;
+  String libs;
+  StringVector sources;
+} Executable;
+
+typedef struct {
+  char *output;
+  char *flags;
+  char *linkerFlags;
+  char *includes;
+  char *libs;
+} ExecutableOptions;
+
+void CreateConfig(MateOptions options);
+void StartBuild();
+void reBuild();
+void CreateExecutable(ExecutableOptions executableOptions);
+
+#define AddLibraryPaths(...)                                                                                                                                                                                                                   \
+  ({                                                                                                                                                                                                                                           \
+    StringVector vector = {0};                                                                                                                                                                                                                 \
+    StringVectorPushMany(vector, __VA_ARGS__);                                                                                                                                                                                                 \
+    addLibraryPaths(&vector);                                                                                                                                                                                                                  \
+  })
+static void addLibraryPaths(StringVector *vector);
+
+#define AddIncludePaths(...)                                                                                                                                                                                                                   \
+  ({                                                                                                                                                                                                                                           \
+    StringVector vector = {0};                                                                                                                                                                                                                 \
+    StringVectorPushMany(vector, __VA_ARGS__);                                                                                                                                                                                                 \
+    addIncludePaths(&vector);                                                                                                                                                                                                                  \
+  })
+static void addIncludePaths(StringVector *vector);
+
+#define LinkSystemLibraries(...)                                                                                                                                                                                                               \
+  ({                                                                                                                                                                                                                                           \
+    StringVector vector = {0};                                                                                                                                                                                                                 \
+    StringVectorPushMany(vector, __VA_ARGS__);                                                                                                                                                                                                 \
+    linkSystemLibraries(&vector);                                                                                                                                                                                                              \
+  })
+static void linkSystemLibraries(StringVector *vector);
+
+#define AddFile(source) addFile(S(source));
+static void addFile(String source);
+String InstallExecutable();
+i32 RunCommand(String command);
+void EndBuild();
+
+static bool needRebuild();
+static void setDefaultState();
+
+/* MIT License
+   mate.h - Mate Implementations start here
+   Guide on the `README.md`
+*/
+#ifdef MATE_IMPLEMENTATION
 static MateConfig state = {0};
 static Executable executable = {0};
 
@@ -1279,8 +1530,19 @@ static void setDefaultState() {
   state.compiler = GetCompiler();
 }
 
-void CreateConfig(MateConfig config) {
+static MateConfig parseMateConfig(MateOptions options) {
+  MateConfig result;
+  result.compiler = StrNew(&state.arena, options.compiler);
+  result.buildDirectory = StrNew(&state.arena, options.buildDirectory);
+  result.mateExe = StrNew(&state.arena, options.mateExe);
+  result.mateCachePath = StrNew(&state.arena, options.mateCachePath);
+  result.mateSource = StrNew(&state.arena, options.mateSource);
+  return result;
+}
+
+void CreateConfig(MateOptions options) {
   setDefaultState();
+  MateConfig config = parseMateConfig(options);
 
   if (!StrIsNull(&config.mateSource)) {
     state.mateSource = FixPath(&config.mateSource);
@@ -1363,13 +1625,18 @@ void reBuild() {
   mateExeNew = FixPathExe(&mateExeNew);
   mateExeOld = FixPathExe(&mateExeOld);
 
-#if defined(COMPILER_GCC)
-  String compileCommand = F(&state.arena, "gcc -o \"%s\" \"%s\"", mateExeNew.data, state.mateSource.data);
-#elif defined(COMPILER_CLANG)
-  String compileCommand = F(&state.arena, "clang -o \"%s\" \"%s\"", mateExeNew.data, state.mateSource.data);
-#elif defined(COMPILER_MSVC)
-  String compileCommand = F(&state.arena, "cl.exe /Fe:\"%s\" \"%s\"", mateExeNew.data, state.mateSource.data);
-#endif
+  String compileCommand;
+  if (StrEqual(&state.compiler, &S("gcc"))) {
+    compileCommand = F(&state.arena, "gcc -o \"%s\" -Wall -g \"%s\"", mateExeNew.data, state.mateSource.data);
+  }
+
+  if (StrEqual(&state.compiler, &S("clang"))) {
+    compileCommand = F(&state.arena, "clang -o \"%s\" -Wall -g \"%s\"", mateExeNew.data, state.mateSource.data);
+  }
+
+  if (StrEqual(&state.compiler, &S("MSVC"))) {
+    compileCommand = F(&state.arena, "cl.exe /Fe:\"%s\" /W4 /Zi \"%s\"", mateExeNew.data, state.mateSource.data);
+  }
 
   LogWarn("%s changed rebuilding...", state.mateSource.data);
   errno_t rebuildResult = RunCommand(compileCommand);
@@ -1405,8 +1672,19 @@ void defaultExecutable() {
   executable.libs = S("");
 }
 
-void CreateExecutable(Executable options) {
+static Executable parseExecutableOptions(ExecutableOptions options) {
+  Executable result;
+  result.output = StrNew(&state.arena, options.output);
+  result.flags = StrNew(&state.arena, options.flags);
+  result.linkerFlags = StrNew(&state.arena, options.linkerFlags);
+  result.includes = StrNew(&state.arena, options.includes);
+  result.libs = StrNew(&state.arena, options.libs);
+  return result;
+}
+
+void CreateExecutable(ExecutableOptions executableOptions) {
   defaultExecutable();
+  Executable options = parseExecutableOptions(executableOptions);
 
   if (!StrIsNull(&options.output)) {
     String executableOutput = ConvertExe(&state.arena, options.output);
@@ -1449,7 +1727,7 @@ errno_t CreateCompileCommands() {
 
   String compdbCommand = ConvertPath(&state.arena, F(&state.arena, "ninja -f %s/build.ninja -t compdb", buildPath.data));
 
-  ninjaPipe = _popen(compdbCommand.data, "r");
+  ninjaPipe = popen(compdbCommand.data, "r");
   if (ninjaPipe == NULL) {
     LogError("Failed to run command");
     fclose(outputFile);
@@ -1461,7 +1739,7 @@ errno_t CreateCompileCommands() {
   }
 
   fclose(outputFile);
-  i32 status = _pclose(ninjaPipe);
+  i32 status = pclose(ninjaPipe);
   if (status != 0) {
     LogError("Command failed with status %d\n", status);
     return status;
@@ -1471,7 +1749,7 @@ errno_t CreateCompileCommands() {
   return SUCCESS;
 }
 
-void AddFile(String source) {
+static void addFile(String source) {
   VecPush(executable.sources, source);
 }
 
@@ -1497,7 +1775,7 @@ static StringVector outputTransformer(StringVector vector) {
 // TODO: Make linux version
 String InstallExecutable() {
   if (executable.sources.length == 0) {
-    LogError("Executable has zero sources, add at least one with \"AddFile(source)\"");
+    LogError("Executable has zero sources, add at least one with AddFile(\"./main.c\")");
     abort();
   }
 
@@ -1506,6 +1784,16 @@ String InstallExecutable() {
   if (StrEqual(&state.compiler, &S("gcc"))) {
     linkCommand = F(&state.arena, "rule link\n  command = $cc $flags $linker_flags -o $out $in $libs\n");
     compileCommand = F(&state.arena, "rule compile\n  command = $cc $flags $includes -c $in -o $out\n");
+  }
+
+  if (StrEqual(&state.compiler, &S("clang"))) {
+    linkCommand = F(&state.arena, "rule link\n  command = $cc $flags $linker_flags -o $out $in $libs\n");
+    compileCommand = F(&state.arena, "rule compile\n  command = $cc $flags $includes -c $in -o $out\n");
+  }
+
+  if (StrEqual(&state.compiler, &S("MSVC"))) {
+    LogError("MSVC not yet implemented");
+    abort();
   }
 
   String ninjaOutput = F(&state.arena,
@@ -1582,6 +1870,7 @@ static void addLibraryPaths(StringVector *vector) {
   }
 }
 
+// TODO: Same thing here
 static void addIncludePaths(StringVector *vector) {
   for (size_t i = 0; i < vector->length; i++) {
     String *currInclude = VecAt((*vector), i);
@@ -1611,3 +1900,4 @@ void EndBuild() {
   ArenaFree(&state.arena);
 }
 #endif
+// --- MATE.H END ---

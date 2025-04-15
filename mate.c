@@ -2,15 +2,17 @@
 #include "mate.h"
 
 i32 main() {
+  CreateConfig((MateOptions){.compiler = "clang"});
+
   StartBuild();
   {
-    CreateExecutable((Executable){.output = S("main"), .flags = S("-Wall -ggdb")});
+    CreateExecutable((ExecutableOptions){.output = "main", .flags = "-Wall -ggdb"});
 
-    AddFile(S("./src/main.c"));
+    AddFile("./src/main.c");
 
-    AddIncludePaths(S("C:/raylib/include"));
-    AddLibraryPaths(S("C:/raylib/lib"));
-    LinkSystemLibraries(S("raylib"), S("opengl32"), S("gdi32"), S("winmm"));
+    AddIncludePaths("C:/raylib/include");
+    AddLibraryPaths("C:/raylib/lib");
+    LinkSystemLibraries("raylib", "opengl32", "gdi32", "winmm");
 
     String exePath = InstallExecutable();
     RunCommand(exePath);
